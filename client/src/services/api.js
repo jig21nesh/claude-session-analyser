@@ -15,15 +15,21 @@ async function request(path, options = {}) {
   return body.data;
 }
 
+function query(params) {
+  const pairs = Object.entries(params).filter(([, v]) => v !== null && v !== undefined);
+  if (pairs.length === 0) return '';
+  return `?${pairs.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')}`;
+}
+
 export const api = {
-  summary: () => request('/summary'),
-  projects: () => request('/projects'),
+  summary: (since = null) => request(`/summary${query({ since })}`),
+  projects: (since = null) => request(`/projects${query({ since })}`),
   project: (id) => request(`/projects/${encodeURIComponent(id)}`),
   projectSessions: (id, page = 1, pageSize = 25) =>
     request(`/projects/${encodeURIComponent(id)}/sessions?page=${page}&page_size=${pageSize}`),
   session: (sessionId) => request(`/sessions/${encodeURIComponent(sessionId)}`),
-  dailyCosts: (projectId) =>
-    request(projectId ? `/daily-costs?project_id=${encodeURIComponent(projectId)}` : '/daily-costs'),
+  dailyCosts: (projectId = null, since = null) =>
+    request(`/daily-costs${query({ project_id: projectId, since })}`),
   predictions: (days = 30) => request(`/predictions?days=${days}`),
   improvements: (projectId) =>
     request(projectId ? `/improvements?project_id=${encodeURIComponent(projectId)}` : '/improvements'),

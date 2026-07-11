@@ -81,6 +81,44 @@ describe('ForecastDetails', () => {
   });
 });
 
+describe('RangeFilter', () => {
+  it('should compute the since date for each preset', async () => {
+    const { sinceForPreset } = await import('../components/RangeFilter.jsx');
+    const now = new Date('2026-07-11T10:00:00Z');
+    expect(sinceForPreset('all', now)).toBeNull();
+    expect(sinceForPreset('day', now)).toBe('2026-07-11');
+    expect(sinceForPreset('week', now)).toBe('2026-07-05');
+    expect(sinceForPreset('month', now)).toBe('2026-06-12');
+    expect(sinceForPreset('year', now)).toBe('2025-07-12');
+  });
+
+  it('should render all presets and report selection', async () => {
+    const { default: RangeFilter } = await import('../components/RangeFilter.jsx');
+    const onChange = vi.fn();
+    render(<RangeFilter value="all" onChange={onChange} firstActivity="2026-05-09" />);
+    for (const label of ['All', 'Year', 'Month', 'Week', 'Today']) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
+    }
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/all history/)).toBeInTheDocument();
+    screen.getByRole('button', { name: 'Week' }).click();
+    expect(onChange).toHaveBeenCalledWith('week');
+  });
+});
+
+describe('fillDailyGaps', () => {
+  it('should insert zero-cost days between sparse points', async () => {
+    const { fillDailyGaps } = await import('../utils/series.js');
+    const filled = fillDailyGaps([
+      { date: '2026-07-01', cost: 5 },
+      { date: '2026-07-04', cost: 2 },
+    ]);
+    expect(filled).toHaveLength(4);
+    expect(filled.map((p) => p.cost)).toEqual([5, 0, 0, 2]);
+    expect(fillDailyGaps([])).toEqual([]);
+  });
+});
+
 describe('ImprovementCard', () => {
   const item = {
     severity: 'high',

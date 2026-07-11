@@ -123,6 +123,35 @@ test('GET /api/sessions/:sessionId returns detail and validates input', async ()
   assert.equal((await get('/api/sessions/00000000-0000-0000-0000-000000000000')).status, 404);
 });
 
+test('GET /api/summary filters by since date', async () => {
+  // Fixture: alpha has one request per day 2026-06-01..2026-06-20; beta has one on 2026-07-01.
+  const all = await get('/api/summary');
+  const ranged = await get('/api/summary?since=2026-06-11');
+  assert.equal(ranged.status, 200);
+  assert.equal(ranged.body.data.since, '2026-06-11');
+  assert.equal(ranged.body.data.totals.requests, 11); // alpha days 11..20 + beta's 1
+  assert.equal(ranged.body.data.totals.projects, 2);
+  assert.ok(ranged.body.data.totals.cost_usd < all.body.data.totals.cost_usd);
+  assert.equal(ranged.body.data.totals.first_activity, '2026-06-11');
+  assert.ok(ranged.body.data.by_model.length >= 1);
+
+  // A range covering only beta's activity isolates it completely.
+  const julyOnly = await get('/api/summary?since=2026-07-01');
+  assert.equal(julyOnly.body.data.totals.requests, 1);
+  assert.equal(julyOnly.body.data.totals.projects, 1);
+
+  assert.equal((await get('/api/summary?since=not-a-date')).status, 400);
+  assert.equal((await get('/api/summary?since=2026-13-99')).status, 400);
+});
+
+test('GET /api/projects filters by since date', async () => {
+  const filtered = await get('/api/projects?since=2026-07-01');
+  assert.equal(filtered.status, 200);
+  assert.equal(filtered.body.data.projects.length, 1);
+  assert.equal(filtered.body.data.projects[0].name, 'beta');
+  assert.equal((await get('/api/projects?since=junk')).status, 400);
+});
+
 test('GET /api/daily-costs returns a dense-enough series and filters by project', async () => {
   const all = await get('/api/daily-costs');
   assert.equal(all.status, 200);
@@ -133,8 +162,13 @@ test('GET /api/daily-costs returns a dense-enough series and filters by project'
   const filtered = await get(`/api/daily-costs?project_id=${betaId}`);
   assert.equal(filtered.body.data.days.length, 1);
 
+  const ranged = await get('/api/daily-costs?since=2026-06-15');
+  assert.equal(ranged.body.data.days.length, 7); // alpha 15..20 + beta 07-01
+  assert.equal(ranged.body.data.days[0].date, '2026-06-15');
+
   assert.equal((await get('/api/daily-costs?project_id=zzz')).status, 400);
   assert.equal((await get('/api/daily-costs?days=0')).status, 400);
+  assert.equal((await get('/api/daily-costs?since=15-06-2026')).status, 400);
 });
 
 test('GET /api/predictions forecasts with model metadata and persists the report', async () => {

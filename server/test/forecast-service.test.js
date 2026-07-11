@@ -13,7 +13,7 @@ function insertDailyUsage(days) {
   `).run();
   const sid = Number(db.prepare("SELECT id FROM sessions WHERE session_id = 'aaaa-fc'").get().id);
   const insert = db.prepare(
-    'INSERT INTO session_daily_usage (session_id, date, cost_usd) VALUES (?, ?, ?)'
+    "INSERT INTO session_daily_usage (session_id, date, model, cost_usd) VALUES (?, ?, 'claude-opus-4-8', ?)"
   );
   const start = new Date('2026-06-01T00:00:00Z').getTime();
   days.forEach((cost, i) => {

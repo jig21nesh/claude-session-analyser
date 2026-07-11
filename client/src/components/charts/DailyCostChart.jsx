@@ -18,7 +18,14 @@ export default function DailyCostChart({ history, forecast = [], height = 300 })
   // Connect the two lines at the seam.
   const lastActualIndex = history.length - 1;
   if (lastActualIndex >= 0 && forecast.length > 0) {
-    data[lastActualIndex] = { ...data[lastActualIndex], predicted: history[lastActualIndex].cost };
+    const lastCost = history[lastActualIndex].cost;
+    // Connect the lines and fan the interval out from the last actual point
+    // instead of starting as an abrupt vertical wall.
+    data[lastActualIndex] = {
+      ...data[lastActualIndex],
+      predicted: lastCost,
+      band: [lastCost, lastCost],
+    };
   }
 
   return (

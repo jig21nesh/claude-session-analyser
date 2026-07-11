@@ -59,13 +59,14 @@ CREATE TABLE IF NOT EXISTS session_model_usage (
 CREATE TABLE IF NOT EXISTS session_daily_usage (
   session_id          INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   date                TEXT NOT NULL,
+  model               TEXT NOT NULL,
   requests            INTEGER NOT NULL DEFAULT 0,
   input_tokens        INTEGER NOT NULL DEFAULT 0,
   output_tokens       INTEGER NOT NULL DEFAULT 0,
   cache_read_tokens   INTEGER NOT NULL DEFAULT 0,
   cache_create_tokens INTEGER NOT NULL DEFAULT 0,
   cost_usd            REAL NOT NULL DEFAULT 0,
-  PRIMARY KEY (session_id, date)
+  PRIMARY KEY (session_id, date, model)
 );
 CREATE INDEX IF NOT EXISTS idx_daily_date ON session_daily_usage(date);
 
@@ -95,6 +96,9 @@ CREATE INDEX IF NOT EXISTS idx_improvements_project ON improvements(project_id);
 CREATE INDEX IF NOT EXISTS idx_improvements_session ON improvements(session_id);
 `;
 
+const SCHEMA_VERSION = '2';
+const TABLES = ['improvements', 'forecasts', 'session_daily_usage', 'session_model_usage', 'sessions', 'projects', 'meta'];
+
 export function openDb(dbPath) {
   if (dbPath !== ':memory:') {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -103,6 +107,13 @@ export function openDb(dbPath) {
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(SCHEMA);
+  // The database is a disposable cache: on schema change, drop and let the
+  // next scan rebuild rather than migrating in place.
+  if (getMeta(db, 'schema_version') !== SCHEMA_VERSION) {
+    for (const table of TABLES) db.exec(`DROP TABLE IF EXISTS ${table}`);
+    db.exec(SCHEMA);
+    setMeta(db, 'schema_version', SCHEMA_VERSION);
+  }
   return db;
 }
 

@@ -30,3 +30,10 @@ const SESSION_ID_RE = /^[0-9a-fA-F-]{8,64}$/;
 export function isValidSessionId(value) {
   return typeof value === 'string' && SESSION_ID_RE.test(value);
 }
+
+/** YYYY-MM-DD or absent. Returns null (absent), undefined (invalid) or the string. */
+export function toIsoDate(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  return Number.isNaN(new Date(`${value}T00:00:00Z`).getTime()) ? undefined : value;
+}

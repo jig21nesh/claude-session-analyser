@@ -148,10 +148,21 @@ export function forecastCosts(rows, horizonDays = 30) {
     stats = { mae: 0, rmse: 0, sd: avg > 0 ? avg : 1 };
   }
 
+  // Interval growth: a damped-trend model's h-step-ahead variance converges
+  // (sum of phi^2i), unlike a random walk's unbounded sqrt(h). Using sqrt(h)
+  // here would balloon the band far beyond what the model can actually drift.
+  const phi = stats.params?.phi ?? null;
+  const spreadFactor = (h) => {
+    if (phi !== null && phi < 1) {
+      return Math.sqrt((1 - phi ** (2 * h)) / (1 - phi ** 2));
+    }
+    return Math.sqrt(h);
+  };
+
   const startMs = new Date(`${lastDate}T00:00:00Z`).getTime();
   const forecast = pointForecasts.map((value, i) => {
     const h = i + 1;
-    const spread = stats.sd * Math.sqrt(h);
+    const spread = stats.sd * spreadFactor(h);
     const point = Math.max(0, value);
     return {
       date: new Date(startMs + h * 86400000).toISOString().slice(0, 10),

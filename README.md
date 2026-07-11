@@ -61,7 +61,7 @@ so nothing needs credentials and nothing leaves your machine.
 
 | Page | What it shows |
 |---|---|
-| **Dashboard** | Total & per-model spend, money already saved by prompt caching, token composition donut, top projects, daily cost line **with 30-day forecast band** |
+| **Dashboard** | Total & per-model spend, money already saved by prompt caching, token composition donut, top projects, daily cost line **with 30-day forecast band** — all filterable by date range (All · Year · Month · Week · Today) |
 | **Projects** | Every project Claude Code touched, ranked by cost, with drill-down |
 | **Project detail** | Per-project daily costs, model mix, session list, and project-specific savings |
 | **Session detail** | One session's true cost — including subagent & workflow-agent usage — with per-model breakdown and cache hit rate |

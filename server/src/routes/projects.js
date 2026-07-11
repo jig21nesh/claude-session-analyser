@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX } from '../config.js';
-import { ok, fail, toBoundedInt, isValidSessionId } from './respond.js';
+import { ok, fail, toBoundedInt, isValidSessionId, toIsoDate } from './respond.js';
 
 const SESSION_COLUMNS = `
   s.id, s.session_id, s.project_id, s.started_at, s.ended_at,
@@ -14,20 +14,40 @@ export function projectRoutes(db) {
   const router = Router();
 
   router.get('/projects', (req, res) => {
-    const rows = db.prepare(`
-      SELECT p.id, p.name, p.path,
-             COUNT(s.id) AS sessions,
-             COALESCE(SUM(s.requests), 0) AS requests,
-             COALESCE(SUM(s.input_tokens), 0) AS input_tokens,
-             COALESCE(SUM(s.output_tokens), 0) AS output_tokens,
-             COALESCE(SUM(s.cache_read_tokens), 0) AS cache_read_tokens,
-             COALESCE(SUM(s.cost_usd), 0) AS cost_usd,
-             MAX(s.ended_at) AS last_activity
-      FROM projects p
-      LEFT JOIN sessions s ON s.project_id = p.id
-      GROUP BY p.id
-      ORDER BY cost_usd DESC
-    `).all();
+    const since = toIsoDate(req.query.since);
+    if (since === undefined) return fail(res, 400, 'since must be a valid YYYY-MM-DD date');
+
+    const rows = since === null
+      ? db.prepare(`
+          SELECT p.id, p.name, p.path,
+                 COUNT(s.id) AS sessions,
+                 COALESCE(SUM(s.requests), 0) AS requests,
+                 COALESCE(SUM(s.input_tokens), 0) AS input_tokens,
+                 COALESCE(SUM(s.output_tokens), 0) AS output_tokens,
+                 COALESCE(SUM(s.cache_read_tokens), 0) AS cache_read_tokens,
+                 COALESCE(SUM(s.cost_usd), 0) AS cost_usd,
+                 MAX(s.ended_at) AS last_activity
+          FROM projects p
+          LEFT JOIN sessions s ON s.project_id = p.id
+          GROUP BY p.id
+          ORDER BY cost_usd DESC
+        `).all()
+      : db.prepare(`
+          SELECT p.id, p.name, p.path,
+                 COUNT(DISTINCT d.session_id) AS sessions,
+                 COALESCE(SUM(d.requests), 0) AS requests,
+                 COALESCE(SUM(d.input_tokens), 0) AS input_tokens,
+                 COALESCE(SUM(d.output_tokens), 0) AS output_tokens,
+                 COALESCE(SUM(d.cache_read_tokens), 0) AS cache_read_tokens,
+                 COALESCE(SUM(d.cost_usd), 0) AS cost_usd,
+                 MAX(d.date) AS last_activity
+          FROM projects p
+          JOIN sessions s ON s.project_id = p.id
+          JOIN session_daily_usage d ON d.session_id = s.id
+          WHERE d.date >= ?
+          GROUP BY p.id
+          ORDER BY cost_usd DESC
+        `).all(since);
     ok(res, { projects: rows });
   });
 
@@ -125,9 +145,15 @@ export function projectRoutes(db) {
     `).all(session.id);
 
     const daily = db.prepare(`
-      SELECT date, requests, cost_usd, input_tokens, output_tokens, cache_read_tokens
+      SELECT date,
+             SUM(requests) AS requests,
+             SUM(cost_usd) AS cost_usd,
+             SUM(input_tokens) AS input_tokens,
+             SUM(output_tokens) AS output_tokens,
+             SUM(cache_read_tokens) AS cache_read_tokens
       FROM session_daily_usage
       WHERE session_id = ?
+      GROUP BY date
       ORDER BY date
     `).all(session.id);
 

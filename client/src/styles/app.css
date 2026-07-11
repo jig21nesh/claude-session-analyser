@@ -58,6 +58,51 @@
   background: var(--accent-dim);
 }
 
+/* ---------- range filter ---------- */
+.range-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+  animation: fade-up 0.5s ease both;
+}
+
+.range-pills {
+  display: inline-flex;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 3px;
+  gap: 2px;
+}
+
+.range-pills button {
+  font: 600 var(--fs-s) var(--font-body);
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.range-pills button:hover {
+  color: var(--text);
+}
+
+.range-pills button.active {
+  color: #090b10;
+  background: var(--accent);
+}
+
+.range-caption {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- refresh button ---------- */
 .refresh-btn {
   display: inline-flex;
