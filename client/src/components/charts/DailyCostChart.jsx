@@ -51,11 +51,10 @@ export default function DailyCostChart({ history, forecast = [], height = 300 })
               name="80% interval"
               dataKey="band"
               stroke="none"
-              fill="var(--series-1)"
-              fillOpacity={0.12}
+              fill="var(--series-2)"
+              fillOpacity={0.1}
               isAnimationActive={false}
-              legendType="none"
-              tooltipType="none"
+              legendType="rect"
             />
           </>
         )}

@@ -110,7 +110,32 @@ test('scanAll records per-model and per-day breakdowns', async () => {
 
 test('scanAll survives an unreadable projects dir', async () => {
   const result = await scanAll(db, '/nonexistent/path/for/testing');
-  assert.equal(result.files, 0);
+  assert.equal(result.sessions, 0);
+});
+
+test('scanAll merges nested subagent transcripts into the parent session', async () => {
+  writeSessionFile(projectsDir, '-p', 'aaaa-4444', [
+    userEntry({}),
+    assistantEntry({ requestId: 'req_main', model: 'claude-fable-5', input: 1000, output: 100 }),
+  ]);
+  // Subagent transcript nested under <session>/subagents/ with its own requests.
+  writeSessionFile(projectsDir, '-p/aaaa-4444/subagents', 'agent-x1', [
+    userEntry({ text: 'subagent task prompt' }),
+    assistantEntry({ requestId: 'req_sub', model: 'claude-opus-4-8', input: 1e6, output: 0 }),
+    assistantEntry({ requestId: 'req_main', input: 999999, output: 999999 }), // duplicate id across files → counted once
+  ]);
+
+  await scanAll(db, projectsDir);
+  const session = db.prepare("SELECT * FROM sessions WHERE session_id = 'aaaa-4444'").get();
+  assert.ok(session, 'nested files attach to the parent session');
+  assert.equal(session.file_count, 2);
+  assert.equal(session.requests, 2);
+  // Subagent user entries are not human prompts.
+  assert.equal(session.user_messages, 1);
+  // Sidechain cost = the opus subagent request ($5/M input on 1M tokens).
+  assert.ok(Math.abs(session.sidechain_cost_usd - 5) < 1e-6, `sidechain ${session.sidechain_cost_usd}`);
+  const models = db.prepare("SELECT model FROM session_model_usage WHERE session_id = ? ORDER BY model").all(session.id);
+  assert.equal(models.length, 2);
 });
 
 test('projectNameFromDir falls back to the last path segment', () => {

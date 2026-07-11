@@ -7,27 +7,34 @@ import { setMeta } from './db.js';
 import { logger } from './logger.js';
 
 /**
- * Parse one session transcript (JSONL) as a stream.
- * Only usage metadata is extracted — message text never leaves the file.
- * Usage is deduplicated by requestId: one API response can span several JSONL
- * entries that each repeat the same usage object.
+ * Transcript layout under ~/.claude/projects/<project-dir>/:
+ *   <session>.jsonl                              — main session transcript
+ *   <session>/subagents/*.jsonl                  — subagent transcripts
+ *   <session>/subagents/workflows/<wf>/*.jsonl   — workflow agent transcripts
+ * A session's true cost is the union of all of them, deduplicated by requestId.
  */
-export async function parseSessionFile(filePath) {
-  const stats = {
-    userMessages: 0,
-    assistantEntries: 0,
-    toolCalls: 0,
-    firstTs: null,
-    lastTs: null,
-    cwd: null,
-    gitBranch: null,
-    cliVersion: null,
-    malformedLines: 0,
-  };
-  const usageByRequest = new Map();
-  const toolUseIds = new Set();
-  let anonymousToolCalls = 0;
 
+function newCollector() {
+  return {
+    stats: {
+      userMessages: 0,
+      assistantEntries: 0,
+      firstTs: null,
+      lastTs: null,
+      cwd: null,
+      gitBranch: null,
+      cliVersion: null,
+      malformedLines: 0,
+    },
+    usageByRequest: new Map(),
+    toolUseIds: new Set(),
+    anonymousToolCalls: 0,
+  };
+}
+
+/** Stream one JSONL file into the collector. Only usage metadata is read. */
+async function collectFile(collector, filePath, { forceSidechain = false } = {}) {
+  const { stats, usageByRequest, toolUseIds } = collector;
   const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
@@ -46,11 +53,13 @@ export async function parseSessionFile(filePath) {
       if (stats.firstTs === null || entry.timestamp < stats.firstTs) stats.firstTs = entry.timestamp;
       if (stats.lastTs === null || entry.timestamp > stats.lastTs) stats.lastTs = entry.timestamp;
     }
-    if (!stats.cwd && typeof entry.cwd === 'string') stats.cwd = entry.cwd;
-    if (!stats.gitBranch && typeof entry.gitBranch === 'string') stats.gitBranch = entry.gitBranch;
-    if (!stats.cliVersion && typeof entry.version === 'string') stats.cliVersion = entry.version;
+    if (!forceSidechain) {
+      if (!stats.cwd && typeof entry.cwd === 'string') stats.cwd = entry.cwd;
+      if (!stats.gitBranch && typeof entry.gitBranch === 'string') stats.gitBranch = entry.gitBranch;
+      if (!stats.cliVersion && typeof entry.version === 'string') stats.cliVersion = entry.version;
+    }
 
-    if (entry.type === 'user' && !entry.isSidechain) {
+    if (entry.type === 'user' && !forceSidechain && !entry.isSidechain) {
       const content = entry.message?.content;
       const isToolResultOnly =
         Array.isArray(content) && content.length > 0 && content.every((c) => c?.type === 'tool_result');
@@ -58,40 +67,42 @@ export async function parseSessionFile(filePath) {
     } else if (entry.type === 'assistant') {
       stats.assistantEntries += 1;
       const message = entry.message;
-      if (message && typeof message === 'object') {
-        if (Array.isArray(message.content)) {
-          for (const block of message.content) {
-            if (block?.type !== 'tool_use') continue;
-            // The same block can be re-emitted across streamed entries — dedupe by id.
-            if (typeof block.id === 'string') toolUseIds.add(block.id);
-            else anonymousToolCalls += 1;
-          }
+      if (!message || typeof message !== 'object') continue;
+
+      if (Array.isArray(message.content)) {
+        for (const block of message.content) {
+          if (block?.type !== 'tool_use') continue;
+          // The same block can be re-emitted across streamed entries — dedupe by id.
+          if (typeof block.id === 'string') toolUseIds.add(block.id);
+          else collector.anonymousToolCalls += 1;
         }
-        const usage = message.usage;
-        if (usage && typeof usage === 'object') {
-          const key = entry.requestId || message.id || entry.uuid;
-          usageByRequest.set(key, {
-            model: message.model || 'unknown',
-            timestamp: entry.timestamp || null,
-            sidechain: entry.isSidechain === true,
-            input: usage.input_tokens || 0,
-            output: usage.output_tokens || 0,
-            cacheRead: usage.cache_read_input_tokens || 0,
-            cache5m:
-              usage.cache_creation?.ephemeral_5m_input_tokens ??
-              (usage.cache_creation ? 0 : usage.cache_creation_input_tokens || 0),
-            cache1h: usage.cache_creation?.ephemeral_1h_input_tokens ?? 0,
-          });
-        }
+      }
+
+      const usage = message.usage;
+      if (usage && typeof usage === 'object') {
+        const key = entry.requestId || message.id || entry.uuid;
+        // First write wins: repeats of a requestId (streamed blocks, or the
+        // same request echoed in a subagent file) carry the same usage.
+        if (usageByRequest.has(key)) continue;
+        usageByRequest.set(key, {
+          model: message.model || 'unknown',
+          timestamp: entry.timestamp || null,
+          sidechain: forceSidechain || entry.isSidechain === true,
+          input: usage.input_tokens || 0,
+          output: usage.output_tokens || 0,
+          cacheRead: usage.cache_read_input_tokens || 0,
+          cache5m:
+            usage.cache_creation?.ephemeral_5m_input_tokens ??
+            (usage.cache_creation ? 0 : usage.cache_creation_input_tokens || 0),
+          cache1h: usage.cache_creation?.ephemeral_1h_input_tokens ?? 0,
+        });
       }
     }
   }
-
-  stats.toolCalls = toolUseIds.size + anonymousToolCalls;
-  return aggregateUsage(stats, usageByRequest);
 }
 
-function aggregateUsage(stats, usageByRequest) {
+function aggregate(collector) {
+  const { stats, usageByRequest } = collector;
   const totals = { input: 0, output: 0, cacheRead: 0, cache5m: 0, cache1h: 0, cost: 0, sidechainCost: 0 };
   const byModel = new Map();
   const byDate = new Map();
@@ -143,7 +154,31 @@ function aggregateUsage(stats, usageByRequest) {
     }
   }
 
-  return { ...stats, requests: usageByRequest.size, totals, byModel, byDate };
+  return {
+    ...stats,
+    toolCalls: collector.toolUseIds.size + collector.anonymousToolCalls,
+    requests: usageByRequest.size,
+    totals,
+    byModel,
+    byDate,
+  };
+}
+
+/** Parse a single transcript file (used directly by tests). */
+export async function parseSessionFile(filePath) {
+  const collector = newCollector();
+  await collectFile(collector, filePath);
+  return aggregate(collector);
+}
+
+/** Parse a whole session group: main transcript + nested subagent transcripts. */
+export async function parseSessionGroup(group) {
+  const collector = newCollector();
+  if (group.mainFile) await collectFile(collector, group.mainFile);
+  for (const sub of group.subFiles) {
+    await collectFile(collector, sub, { forceSidechain: true });
+  }
+  return aggregate(collector);
 }
 
 /** Best-effort human name for a project directory when no cwd was recorded. */
@@ -152,30 +187,82 @@ export function projectNameFromDir(dirName) {
   return parts.length > 0 ? parts[parts.length - 1] : dirName;
 }
 
-async function listSessionFiles(projectsDir) {
-  const out = [];
+async function walkJsonl(dir, out) {
+  let entries;
+  try {
+    entries = await fsp.readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) await walkJsonl(full, out);
+    else if (entry.isFile() && entry.name.endsWith('.jsonl')) out.push(full);
+  }
+}
+
+/**
+ * Group every transcript under projectsDir by session.
+ * Returns [{ dirName, sessionId, mainFile, subFiles }].
+ */
+export async function listSessionGroups(projectsDir) {
+  const groups = [];
   let projectDirs = [];
   try {
     projectDirs = await fsp.readdir(projectsDir, { withFileTypes: true });
   } catch (err) {
     logger.warn('projects directory not readable', { dir: projectsDir, error: err.message });
-    return out;
+    return groups;
   }
+
   for (const dirent of projectDirs) {
     if (!dirent.isDirectory()) continue;
     const projectPath = path.join(projectsDir, dirent.name);
-    let files;
+    const bySession = new Map();
+    let entries;
     try {
-      files = await fsp.readdir(projectPath);
+      entries = await fsp.readdir(projectPath, { withFileTypes: true });
     } catch {
       continue;
     }
-    for (const file of files) {
-      if (!file.endsWith('.jsonl')) continue;
-      out.push({ dirName: dirent.name, filePath: path.join(projectPath, file), sessionId: file.slice(0, -6) });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith('.jsonl')) {
+        const sessionId = entry.name.slice(0, -6);
+        const group = getGroup(bySession, dirent.name, sessionId);
+        group.mainFile = path.join(projectPath, entry.name);
+      } else if (entry.isDirectory()) {
+        const nested = [];
+        await walkJsonl(path.join(projectPath, entry.name), nested);
+        if (nested.length > 0) {
+          const group = getGroup(bySession, dirent.name, entry.name);
+          group.subFiles.push(...nested.sort());
+        }
+      }
     }
+    groups.push(...bySession.values());
   }
-  return out;
+  return groups;
+}
+
+function getGroup(bySession, dirName, sessionId) {
+  let group = bySession.get(sessionId);
+  if (!group) {
+    group = { dirName, sessionId, mainFile: null, subFiles: [] };
+    bySession.set(sessionId, group);
+  }
+  return group;
+}
+
+async function statGroup(group) {
+  const files = [group.mainFile, ...group.subFiles].filter(Boolean);
+  let size = 0;
+  let mtime = 0;
+  for (const file of files) {
+    const st = await fsp.stat(file);
+    size += st.size;
+    if (st.mtimeMs > mtime) mtime = st.mtimeMs;
+  }
+  return { size, mtime: Math.round(mtime), count: files.length };
 }
 
 function upsertProject(db, dirName, cwd) {
@@ -194,22 +281,23 @@ function upsertProject(db, dirName, cwd) {
   return Number(result.lastInsertRowid);
 }
 
-function storeSession(db, file, fileStat, parsed) {
-  const projectId = upsertProject(db, file.dirName, parsed.cwd);
+function storeSession(db, group, groupStat, parsed) {
+  const projectId = upsertProject(db, group.dirName, parsed.cwd);
   const models = JSON.stringify([...parsed.byModel.keys()].sort());
 
-  const upsert = db.prepare(`
+  db.prepare(`
     INSERT INTO sessions (
-      session_id, project_id, file_path, file_mtime_ms, file_size,
+      session_id, project_id, file_path, file_mtime_ms, file_size, file_count,
       started_at, ended_at, user_messages, assistant_messages, tool_calls, requests,
       input_tokens, output_tokens, cache_read_tokens, cache_5m_tokens, cache_1h_tokens,
       cost_usd, sidechain_cost_usd, models, git_branch, cli_version
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(session_id) DO UPDATE SET
       project_id = excluded.project_id,
       file_path = excluded.file_path,
       file_mtime_ms = excluded.file_mtime_ms,
       file_size = excluded.file_size,
+      file_count = excluded.file_count,
       started_at = excluded.started_at,
       ended_at = excluded.ended_at,
       user_messages = excluded.user_messages,
@@ -226,17 +314,16 @@ function storeSession(db, file, fileStat, parsed) {
       models = excluded.models,
       git_branch = excluded.git_branch,
       cli_version = excluded.cli_version
-  `);
-  upsert.run(
-    file.sessionId, projectId, file.filePath, Math.round(fileStat.mtimeMs), fileStat.size,
-    parsed.firstTs, parsed.lastTs, parsed.userMessages, parsed.assistantEntries,
+  `).run(
+    group.sessionId, projectId, group.mainFile || group.subFiles[0], groupStat.mtime, groupStat.size,
+    groupStat.count, parsed.firstTs, parsed.lastTs, parsed.userMessages, parsed.assistantEntries,
     parsed.toolCalls, parsed.requests,
     parsed.totals.input, parsed.totals.output, parsed.totals.cacheRead,
     parsed.totals.cache5m, parsed.totals.cache1h,
     parsed.totals.cost, parsed.totals.sidechainCost, models, parsed.gitBranch, parsed.cliVersion
   );
   const sessionRowId = Number(
-    db.prepare('SELECT id FROM sessions WHERE session_id = ?').get(file.sessionId).id
+    db.prepare('SELECT id FROM sessions WHERE session_id = ?').get(group.sessionId).id
   );
 
   db.prepare('DELETE FROM session_model_usage WHERE session_id = ?').run(sessionRowId);
@@ -263,21 +350,21 @@ function storeSession(db, file, fileStat, parsed) {
 }
 
 /**
- * Scan every transcript under projectsDir into the database.
- * Incremental: files whose (mtime, size) match the stored session are skipped
- * unless force is set. Sessions whose files disappeared are removed.
+ * Scan every session group under projectsDir into the database.
+ * Incremental: groups whose (total size, newest mtime, file count) are unchanged
+ * are skipped unless force is set. Sessions whose files disappeared are removed.
  */
 export async function scanAll(db, projectsDir, { force = false, concurrency = 8, onProgress = () => {} } = {}) {
   const startedAt = Date.now();
-  const files = await listSessionFiles(projectsDir);
-  onProgress({ phase: 'listing', total: files.length, processed: 0 });
+  const groups = await listSessionGroups(projectsDir);
+  onProgress({ phase: 'listing', total: groups.length, processed: 0 });
 
   const known = new Map();
-  for (const row of db.prepare('SELECT session_id, file_mtime_ms, file_size FROM sessions').all()) {
+  for (const row of db.prepare('SELECT session_id, file_mtime_ms, file_size, file_count FROM sessions').all()) {
     known.set(row.session_id, row);
   }
 
-  const seenSessionIds = new Set(files.map((f) => f.sessionId));
+  const seenSessionIds = new Set(groups.map((g) => g.sessionId));
   const removed = [...known.keys()].filter((id) => !seenSessionIds.has(id));
   for (const sessionId of removed) {
     db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionId);
@@ -287,29 +374,35 @@ export async function scanAll(db, projectsDir, { force = false, concurrency = 8,
   let parsedCount = 0;
   let skipped = 0;
   let errors = 0;
+  let cursor = 0;
 
-  const queue = [...files];
   async function worker() {
     for (;;) {
-      const file = queue.shift();
-      if (!file) return;
+      const group = groups[cursor];
+      cursor += 1;
+      if (!group) return;
       try {
-        const fileStat = await fsp.stat(file.filePath);
-        const prior = known.get(file.sessionId);
-        if (!force && prior && prior.file_mtime_ms === Math.round(fileStat.mtimeMs) && prior.file_size === fileStat.size) {
+        const groupStat = await statGroup(group);
+        const prior = known.get(group.sessionId);
+        if (
+          !force && prior &&
+          prior.file_mtime_ms === groupStat.mtime &&
+          prior.file_size === groupStat.size &&
+          prior.file_count === groupStat.count
+        ) {
           skipped += 1;
         } else {
-          const parsed = await parseSessionFile(file.filePath);
-          storeSession(db, file, fileStat, parsed);
+          const parsed = await parseSessionGroup(group);
+          storeSession(db, group, groupStat, parsed);
           parsedCount += 1;
         }
       } catch (err) {
         errors += 1;
-        logger.warn('failed to analyse session file', { file: file.filePath, error: err.message });
+        logger.warn('failed to analyse session group', { session: group.sessionId, error: err.message });
       }
       processed += 1;
-      if (processed % 100 === 0 || processed === files.length) {
-        onProgress({ phase: 'parsing', total: files.length, processed });
+      if (processed % 50 === 0 || processed === groups.length) {
+        onProgress({ phase: 'parsing', total: groups.length, processed });
       }
     }
   }
@@ -317,7 +410,7 @@ export async function scanAll(db, projectsDir, { force = false, concurrency = 8,
 
   setMeta(db, 'last_refresh_at', new Date().toISOString());
   const durationMs = Date.now() - startedAt;
-  const summary = { files: files.length, parsed: parsedCount, skipped, removed: removed.length, errors, durationMs };
+  const summary = { sessions: groups.length, parsed: parsedCount, skipped, removed: removed.length, errors, durationMs };
   logger.info('scan complete', summary);
   return summary;
 }

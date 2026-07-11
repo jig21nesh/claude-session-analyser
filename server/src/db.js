@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   file_path          TEXT NOT NULL,
   file_mtime_ms      INTEGER NOT NULL,
   file_size          INTEGER NOT NULL,
+  file_count         INTEGER NOT NULL DEFAULT 1,
   started_at         TEXT,
   ended_at           TEXT,
   user_messages      INTEGER NOT NULL DEFAULT 0,
