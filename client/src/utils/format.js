@@ -20,7 +20,7 @@ export function formatTokens(value) {
 }
 
 export function formatCount(value) {
-  return (Number(value) || 0).toLocaleString('en-US');
+  return Math.round(Number(value) || 0).toLocaleString('en-US');
 }
 
 export function formatDate(iso) {

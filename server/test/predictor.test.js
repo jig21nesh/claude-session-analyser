@@ -78,3 +78,53 @@ test('forecastCosts handles empty history', () => {
   assert.equal(result.forecast.length, 5);
   assert.equal(result.historyDays, 0);
 });
+
+test('holdout validation: the model beats a naive mean on seasonal data', () => {
+  // 6 weeks of weekday-seasonal spend with a gentle trend and deterministic "noise".
+  const week = [22, 30, 34, 31, 26, 6, 3];
+  const total = 42;
+  const series = Array.from({ length: total }, (_, i) =>
+    Math.max(0, week[i % 7] + i * 0.25 + 3 * Math.sin(i * 1.7))
+  );
+  const trainDays = 35;
+  const train = series.slice(0, trainDays);
+  const holdout = series.slice(trainDays);
+
+  const startMs = new Date('2026-05-01T00:00:00Z').getTime();
+  const rows = train.map((cost, i) => ({
+    date: new Date(startMs + i * 86400000).toISOString().slice(0, 10),
+    cost,
+  }));
+
+  const result = forecastCosts(rows, holdout.length);
+  assert.equal(result.model, 'holt-winters');
+
+  const naive = train.reduce((a, b) => a + b, 0) / train.length;
+  const mae = (preds) =>
+    holdout.reduce((acc, actual, i) => acc + Math.abs(actual - preds[i]), 0) / holdout.length;
+  const modelMae = mae(result.forecast.map((p) => p.cost));
+  const naiveMae = mae(holdout.map(() => naive));
+
+  assert.ok(
+    modelMae < naiveMae * 0.5,
+    `expected Holt-Winters to at least halve naive error: model=${modelMae.toFixed(2)} naive=${naiveMae.toFixed(2)}`
+  );
+  // Every held-out day should fall inside the 95% interval on well-behaved data.
+  holdout.forEach((actual, i) => {
+    const p = result.forecast[i];
+    assert.ok(actual >= p.lower95 - 1e-9 && actual <= p.upper95 + 1e-9,
+      `day ${i}: ${actual.toFixed(2)} outside [${p.lower95}, ${p.upper95}]`);
+  });
+});
+
+test('explanation is present and model-specific', () => {
+  const startMs = new Date('2026-06-01T00:00:00Z').getTime();
+  const rows = (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      date: new Date(startMs + i * 86400000).toISOString().slice(0, 10),
+      cost: 5 + (i % 7),
+    }));
+  assert.match(forecastCosts(rows(28), 7).explanation, /Holt-Winters/);
+  assert.match(forecastCosts(rows(8), 7).explanation, /linear regression/i);
+  assert.match(forecastCosts(rows(3), 7).explanation, /historical mean/i);
+});

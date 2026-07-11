@@ -142,3 +142,13 @@ test('projectNameFromDir falls back to the last path segment', () => {
   assert.equal(projectNameFromDir('-Users-x-dev-my-app'), 'app');
   assert.equal(projectNameFromDir(''), '');
 });
+
+test('scanAll derives project names from Windows-style cwd paths', async () => {
+  writeSessionFile(projectsDir, '-C-Users-dev-win-project', 'aaaa-5555', [
+    assistantEntry({ requestId: 'r1', cwd: 'C:\\Users\\dev\\win-project' }),
+  ]);
+  await scanAll(db, projectsDir);
+  const project = db.prepare('SELECT name, path FROM projects').get();
+  assert.equal(project.name, 'win-project');
+  assert.equal(project.path, 'C:\\Users\\dev\\win-project');
+});

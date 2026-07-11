@@ -11,12 +11,22 @@ function intFromEnv(name, fallback) {
   return Number.isInteger(value) && value > 0 && value < 65536 ? value : fallback;
 }
 
+/** Expand a leading `~` so `~/.claude/projects` works on macOS, Linux and Windows. */
+export function expandHome(p) {
+  if (typeof p !== 'string' || p.length === 0) return p;
+  if (p === '~') return os.homedir();
+  if (p.startsWith('~/') || p.startsWith('~\\')) return path.join(os.homedir(), p.slice(2));
+  return p;
+}
+
 export const API_PORT = intFromEnv('API_PORT', 15801);
 export const API_HOST = '127.0.0.1';
-export const CLAUDE_PROJECTS_DIR =
-  process.env.CLAUDE_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects');
-export const DB_PATH =
-  process.env.ANALYSER_DB_PATH || path.join(HERE, '..', 'data', 'analyser.db');
+export const CLAUDE_PROJECTS_DIR = expandHome(
+  process.env.CLAUDE_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects')
+);
+export const DB_PATH = expandHome(
+  process.env.ANALYSER_DB_PATH || path.join(HERE, '..', 'data', 'analyser.db')
+);
 export const SERVICE_NAME = 'claude-session-analyser';
 export const PARSE_CONCURRENCY = 8;
 export const FORECAST_DAYS_DEFAULT = 30;

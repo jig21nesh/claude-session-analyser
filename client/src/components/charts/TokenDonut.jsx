@@ -36,7 +36,7 @@ export default function TokenDonut({ totals, height = 300 }) {
             paddingAngle={2}
             stroke="var(--surface-1)"
             strokeWidth={2}
-            isAnimationActive={false}
+            isAnimationActive={true} animationDuration={700}
           >
             {slices.map((s) => (
               <Cell key={s.key} fill={TOKEN_COLOURS[s.key]} />

@@ -53,7 +53,7 @@ export default function DailyCostChart({ history, forecast = [], height = 300 })
               stroke="none"
               fill="var(--series-2)"
               fillOpacity={0.1}
-              isAnimationActive={false}
+              isAnimationActive={true} animationDuration={700}
               legendType="rect"
             />
           </>
@@ -64,7 +64,7 @@ export default function DailyCostChart({ history, forecast = [], height = 300 })
           stroke={SERIES.gold}
           strokeWidth={2}
           dot={false}
-          isAnimationActive={false}
+          isAnimationActive={true} animationDuration={700}
         />
         {forecast.length > 0 && (
           <Line
@@ -74,7 +74,7 @@ export default function DailyCostChart({ history, forecast = [], height = 300 })
             strokeWidth={2}
             strokeDasharray="6 4"
             dot={false}
-            isAnimationActive={false}
+            isAnimationActive={true} animationDuration={700}
           />
         )}
       </ComposedChart>

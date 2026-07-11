@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useApi } from '../hooks/useApi.js';
 import { api } from '../services/api.js';
 import StatTile from '../components/StatTile.jsx';
+import AnimatedValue from '../components/AnimatedValue.jsx';
 import { Loading, ErrorState, Empty } from '../components/States.jsx';
 import DailyCostChart from '../components/charts/DailyCostChart.jsx';
 import ForecastDetails from '../components/ForecastDetails.jsx';
@@ -45,17 +46,24 @@ export default function DashboardPage() {
       </p>
 
       <div className="stat-grid">
-        <StatTile label="Total spend" value={formatMoney(totals.cost_usd)} accent
+        <StatTile label="Total spend" accent
+          value={<AnimatedValue value={totals.cost_usd} format={formatMoney} />}
           hint="what these sessions cost at API prices" />
-        <StatTile label="Saved by caching" value={formatMoney(cacheSaved)}
+        <StatTile label="Saved by caching"
+          value={<AnimatedValue value={cacheSaved} format={formatMoney} />}
           hint="cache reads billed at 10% of input" />
-        <StatTile label="Next 30 days" value={formatMoney(forecastTotal)}
+        <StatTile label="Next 30 days"
+          value={<AnimatedValue value={forecastTotal} format={formatMoney} />}
           hint={predictions.data ? `forecast · ${MODEL_LABELS[predictions.data.model]}` : 'forecast'} />
-        <StatTile label="API requests" value={formatCount(totals.requests)}
+        <StatTile label="API requests"
+          value={<AnimatedValue value={totals.requests} format={formatCount} />}
           hint={`${formatCount(totals.tool_calls)} tool calls`} />
-        <StatTile label="Tokens processed" value={formatTokens(
-          totals.input_tokens + totals.output_tokens + totals.cache_read_tokens + totals.cache_create_tokens
-        )} hint={`${formatTokens(totals.output_tokens)} generated`} />
+        <StatTile label="Tokens processed"
+          value={<AnimatedValue
+            value={totals.input_tokens + totals.output_tokens + totals.cache_read_tokens + totals.cache_create_tokens}
+            format={formatTokens}
+          />}
+          hint={`${formatTokens(totals.output_tokens)} generated`} />
       </div>
 
       <div className="card">

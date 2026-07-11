@@ -265,10 +265,18 @@ async function statGroup(group) {
   return { size, mtime: Math.round(mtime), count: files.length };
 }
 
+/** Last segment of a recorded cwd — transcripts may carry POSIX or Windows paths. */
+function lastPathSegment(p) {
+  const parts = String(p).split(/[\\/]/).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : null;
+}
+
 function upsertProject(db, dirName, cwd) {
   const existing = db.prepare('SELECT id, path FROM projects WHERE dir_name = ?').get(dirName);
   const projectPath = cwd || existing?.path || dirName;
-  const name = projectPath.includes('/') ? path.basename(projectPath) : projectNameFromDir(dirName);
+  const name = lastPathSegment(projectPath) && /[\\/]/.test(projectPath)
+    ? lastPathSegment(projectPath)
+    : projectNameFromDir(dirName);
   if (existing) {
     if (cwd && existing.path !== cwd) {
       db.prepare('UPDATE projects SET path = ?, name = ? WHERE id = ?').run(projectPath, name, existing.id);
