@@ -25,6 +25,8 @@ export async function parseSessionFile(filePath) {
     malformedLines: 0,
   };
   const usageByRequest = new Map();
+  const toolUseIds = new Set();
+  let anonymousToolCalls = 0;
 
   const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -59,7 +61,10 @@ export async function parseSessionFile(filePath) {
       if (message && typeof message === 'object') {
         if (Array.isArray(message.content)) {
           for (const block of message.content) {
-            if (block?.type === 'tool_use') stats.toolCalls += 1;
+            if (block?.type !== 'tool_use') continue;
+            // The same block can be re-emitted across streamed entries — dedupe by id.
+            if (typeof block.id === 'string') toolUseIds.add(block.id);
+            else anonymousToolCalls += 1;
           }
         }
         const usage = message.usage;
@@ -82,6 +87,7 @@ export async function parseSessionFile(filePath) {
     }
   }
 
+  stats.toolCalls = toolUseIds.size + anonymousToolCalls;
   return aggregateUsage(stats, usageByRequest);
 }
 

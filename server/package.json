@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "node src/index.js",
     "start": "node src/index.js",
-    "test": "node --test test/",
-    "coverage": "c8 --include 'src/**' --reporter text --reporter text-summary node --test test/"
+    "test": "node --test",
+    "coverage": "c8 --include 'src/**' --reporter text --reporter text-summary node --test"
   },
   "dependencies": {
     "express": "^4.21.2"

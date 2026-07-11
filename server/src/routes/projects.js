@@ -76,11 +76,13 @@ export function projectRoutes(db) {
     if (projectId === undefined || projectId === null) {
       return fail(res, 400, 'project id must be a positive integer');
     }
-    const page = toBoundedInt(req.query.page, { min: 1, max: 1e6 }) ?? 1;
-    const pageSize = toBoundedInt(req.query.page_size, { min: 1, max: PAGE_SIZE_MAX }) ?? PAGE_SIZE_DEFAULT;
-    if (page === undefined || pageSize === undefined) {
-      return fail(res, 400, 'page and page_size must be positive integers');
+    const rawPage = toBoundedInt(req.query.page, { min: 1, max: 1e6 });
+    const rawPageSize = toBoundedInt(req.query.page_size, { min: 1, max: PAGE_SIZE_MAX });
+    if (rawPage === undefined || rawPageSize === undefined) {
+      return fail(res, 400, `page must be >= 1 and page_size between 1 and ${PAGE_SIZE_MAX}`);
     }
+    const page = rawPage ?? 1;
+    const pageSize = rawPageSize ?? PAGE_SIZE_DEFAULT;
     const exists = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
     if (!exists) return fail(res, 404, 'project not found');
 
