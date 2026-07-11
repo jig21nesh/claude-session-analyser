@@ -1,0 +1,108 @@
+:root {
+  /* CuriousPiLabs dark theme */
+  --bg: #090b10;
+  --surface-1: #11141c;
+  --surface-2: #171b26;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #eaedf5;
+  --text-secondary: #a8afc2;
+  --text-muted: #6b7288;
+  --accent: #d4a04a;
+  --accent-strong: #e4b866;
+  --accent-dim: rgba(212, 160, 74, 0.14);
+
+  /* Validated chart palette (dark surface #11141c) — fixed slot order */
+  --series-1: #c98500; /* gold  — premium / primary series */
+  --series-2: #3987e5; /* blue  */
+  --series-3: #199e70; /* aqua  */
+  --series-4: #9085e9; /* violet */
+  --series-5: #e66767; /* red   */
+  --series-6: #d55181; /* magenta */
+
+  /* Status (icon + label always accompany colour) */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --grid-line: #232838;
+  --axis-ink: #6b7288;
+
+  --font-body: 'Manrope', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', var(--font-body);
+
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 14px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --fs-xs: 12px;
+  --fs-s: 13px;
+  --fs-m: 15px;
+  --fs-l: 18px;
+  --fs-xl: 24px;
+  --fs-hero: 34px;
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background:
+    radial-gradient(1100px 500px at 85% -10%, rgba(212, 160, 74, 0.07), transparent 60%),
+    radial-gradient(900px 450px at -10% 0%, rgba(57, 135, 229, 0.05), transparent 55%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--fs-m);
+  line-height: 1.55;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-strong);
+}
+
+code {
+  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: 1px 6px;
+}
+
+::selection {
+  background: var(--accent-dim);
+}
