@@ -1,6 +1,7 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { TOKEN_COLOURS } from '../../constants.js';
 import { formatTokens } from '../../utils/format.js';
+import { CHART_ANIMATION } from '../../utils/motion.js';
 
 /** Token composition donut with the cache hit rate as the hero figure. */
 export default function TokenDonut({ totals, height = 300 }) {
@@ -36,7 +37,7 @@ export default function TokenDonut({ totals, height = 300 }) {
             paddingAngle={2}
             stroke="var(--surface-1)"
             strokeWidth={2}
-            isAnimationActive={true} animationDuration={700}
+            {...CHART_ANIMATION}
           >
             {slices.map((s) => (
               <Cell key={s.key} fill={TOKEN_COLOURS[s.key]} />

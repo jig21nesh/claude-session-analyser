@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { prefersReducedMotion } from '../utils/motion.js';
 
 const DURATION_MS = 900;
-
-function prefersReducedMotion() {
-  return typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
 
 /** Ease a number from 0 to its target on mount / when the target changes. */
 export function useCountUp(target) {

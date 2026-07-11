@@ -4,6 +4,7 @@ import {
 import { modelColour, shortModelName } from '../../constants.js';
 import { formatMoney } from '../../utils/format.js';
 import ChartTooltip from './ChartTooltip.jsx';
+import { CHART_ANIMATION } from '../../utils/motion.js';
 
 export default function ModelCostChart({ byModel, height = 300 }) {
   const data = byModel
@@ -30,7 +31,7 @@ export default function ModelCostChart({ byModel, height = 300 }) {
           width={58}
         />
         <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Bar name="Cost" dataKey="cost" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={700}>
+        <Bar name="Cost" dataKey="cost" radius={[4, 4, 0, 0]} {...CHART_ANIMATION}>
           {data.map((entry) => (
             <Cell key={entry.model} fill={modelColour(entry.model)} />
           ))}

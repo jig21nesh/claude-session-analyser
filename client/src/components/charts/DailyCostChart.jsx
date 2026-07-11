@@ -4,6 +4,7 @@ import {
 import { SERIES } from '../../constants.js';
 import { shortDate, formatMoney } from '../../utils/format.js';
 import ChartTooltip from './ChartTooltip.jsx';
+import { CHART_ANIMATION } from '../../utils/motion.js';
 
 /**
  * Daily spend line; when a forecast is supplied it continues as a dashed line
@@ -53,7 +54,7 @@ export default function DailyCostChart({ history, forecast = [], height = 300 })
               stroke="none"
               fill="var(--series-2)"
               fillOpacity={0.1}
-              isAnimationActive={true} animationDuration={700}
+              {...CHART_ANIMATION}
               legendType="rect"
             />
           </>
@@ -64,7 +65,7 @@ export default function DailyCostChart({ history, forecast = [], height = 300 })
           stroke={SERIES.gold}
           strokeWidth={2}
           dot={false}
-          isAnimationActive={true} animationDuration={700}
+          {...CHART_ANIMATION}
         />
         {forecast.length > 0 && (
           <Line
@@ -74,7 +75,7 @@ export default function DailyCostChart({ history, forecast = [], height = 300 })
             strokeWidth={2}
             strokeDasharray="6 4"
             dot={false}
-            isAnimationActive={true} animationDuration={700}
+            {...CHART_ANIMATION}
           />
         )}
       </ComposedChart>
