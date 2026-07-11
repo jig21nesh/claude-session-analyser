@@ -1,5 +1,6 @@
 import { scanAll } from './analyzer.js';
 import { computeImprovements } from './improvements.js';
+import { computeAndStoreForecast } from './forecast-service.js';
 import { PARSE_CONCURRENCY } from './config.js';
 import { logger } from './logger.js';
 
@@ -39,6 +40,8 @@ export function createScanService(db, projectsDir) {
       });
       state.phase = 'improvements';
       computeImprovements(db);
+      state.phase = 'forecast';
+      computeAndStoreForecast(db);
       state.lastResult = result;
       state.phase = 'idle';
     } catch (err) {

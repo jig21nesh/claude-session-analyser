@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getMeta } from '../db.js';
 import { cacheSavings } from '../pricing.js';
-import { forecastCosts } from '../predictor.js';
+import { getForecast } from '../forecast-service.js';
 import { FORECAST_DAYS_DEFAULT, FORECAST_DAYS_MAX } from '../config.js';
 import { ok, fail, toBoundedInt } from './respond.js';
 
@@ -81,15 +81,8 @@ export function analysisRoutes(db, scanService) {
     if (horizon === undefined) {
       return fail(res, 400, `days must be between 1 and ${FORECAST_DAYS_MAX}`);
     }
-    const rows = db.prepare(`
-      SELECT date, SUM(cost_usd) AS cost
-      FROM session_daily_usage
-      GROUP BY date
-      ORDER BY date
-    `).all().map((r) => ({ date: r.date, cost: r.cost }));
-
-    const result = forecastCosts(rows, horizon ?? FORECAST_DAYS_DEFAULT);
-    ok(res, result);
+    // Served from the forecasts table; recomputed only after a fresh analysis.
+    ok(res, getForecast(db, horizon ?? FORECAST_DAYS_DEFAULT));
   });
 
   router.get('/improvements', (req, res) => {

@@ -69,6 +69,17 @@ CREATE TABLE IF NOT EXISTS session_daily_usage (
 );
 CREATE INDEX IF NOT EXISTS idx_daily_date ON session_daily_usage(date);
 
+CREATE TABLE IF NOT EXISTS forecasts (
+  horizon_days   INTEGER PRIMARY KEY,
+  generated_at   TEXT NOT NULL,
+  model          TEXT NOT NULL,
+  history_days   INTEGER NOT NULL,
+  total_forecast REAL NOT NULL,
+  params_json    TEXT,
+  metrics_json   TEXT NOT NULL,
+  result_json    TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS improvements (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,
   scope                 TEXT NOT NULL CHECK (scope IN ('global', 'project', 'session')),

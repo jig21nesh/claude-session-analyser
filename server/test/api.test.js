@@ -137,12 +137,19 @@ test('GET /api/daily-costs returns a dense-enough series and filters by project'
   assert.equal((await get('/api/daily-costs?days=0')).status, 400);
 });
 
-test('GET /api/predictions forecasts with model metadata', async () => {
+test('GET /api/predictions forecasts with model metadata and persists the report', async () => {
   const { status, body } = await get('/api/predictions?days=14');
   assert.equal(status, 200);
   assert.equal(body.data.forecast.length, 14);
   assert.ok(['holt-winters', 'linear-regression', 'historical-mean'].includes(body.data.model));
   assert.ok(body.data.history.length >= 20);
+  assert.ok(body.data.explanation.length > 40, 'explains the model choice');
+
+  // The report is stored; a second call serves it from the database.
+  assert.ok(db.prepare('SELECT 1 FROM forecasts WHERE horizon_days = 14').get());
+  const again = await get('/api/predictions?days=14');
+  assert.equal(again.body.data.fromStore, true);
+
   assert.equal((await get('/api/predictions?days=5000')).status, 400);
 });
 

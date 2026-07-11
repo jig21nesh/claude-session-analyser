@@ -169,10 +169,35 @@ export function forecastCosts(rows, horizonDays = 30) {
     historyDays: ys.length,
     metrics: { mae: round4(stats.mae), rmse: round4(stats.rmse) },
     params: stats.params ?? null,
+    explanation: explain(modelName, ys.length, stats),
     history: series.map((p) => ({ date: p.date, cost: round4(p.cost) })),
     forecast,
     totalForecast: round4(totalForecast),
   };
+}
+
+function explain(modelName, days, stats) {
+  if (modelName === 'holt-winters') {
+    const p = stats.params;
+    return (
+      `Holt-Winters triple exponential smoothing (additive, 7-day season, damped trend) fitted on ` +
+      `${days} days of history. Parameters α=${p.alpha} (level), β=${p.beta} (trend), γ=${p.gamma} ` +
+      `(seasonality), φ=${p.phi} (damping) were selected by grid search over rolling-origin backtests, ` +
+      `minimising one-step-ahead RMSE. The shaded band is an 80% prediction interval from backtest ` +
+      `residuals, widening with horizon.`
+    );
+  }
+  if (modelName === 'linear-regression') {
+    return (
+      `Ordinary least-squares linear regression on ${days} days of history — used automatically while ` +
+      `there are fewer than 14 daily points, too little to estimate a weekly seasonal pattern. ` +
+      `Once two full weeks accumulate, the forecaster upgrades itself to Holt-Winters.`
+    );
+  }
+  return (
+    `Historical mean of ${days} day(s) of spend — with under 5 data points no trend or seasonality ` +
+    `can be estimated yet. The model upgrades automatically as history accumulates.`
+  );
 }
 
 function round4(x) {

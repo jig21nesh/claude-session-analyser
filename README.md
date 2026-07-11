@@ -45,8 +45,14 @@ Open **http://localhost:15800** — the first scan runs automatically and takes 
 for gigabytes of transcripts. After that, the **Refresh** button re-analyses incrementally (only
 new or changed sessions are parsed).
 
-> Ports: web UI `15800`, API `15801` — deliberately outside the default-port crowd, overridable
-> via `PORT` / `API_PORT`.
+> Ports: web UI `15800`, API `15801` — deliberately outside the default-port crowd.
+
+### Configuration (optional)
+
+Copy [`.env.example`](.env.example) to `.env` to override ports, the transcript directory,
+the database path or log level. **There are no API keys**: the improvements engine and the
+forecaster are deterministic (SQL heuristics + Holt-Winters smoothing) — no LLM is called,
+so nothing needs credentials and nothing leaves your machine.
 
 ## What you get
 
@@ -121,6 +127,9 @@ flowchart LR
   Claude Code runs.
 - **Incremental by design** — sessions are re-parsed only when their files change; a refresh
   after the first scan takes well under a second.
+- **Everything lands in the database** — sessions, per-model and per-day usage, improvement
+  reports *and* forecast reports are all persisted in SQLite; page loads never re-analyse,
+  and forecasts are recomputed only after a refresh (ADR 0005).
 - **Subagent-aware** — usage recorded by subagents and workflow agents (nested under
   `<session>/subagents/`) is merged into the parent session and deduplicated by request id, so
   costs are complete, not just the main transcript.
