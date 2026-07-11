@@ -34,6 +34,9 @@ that folder into answers:
 
 ## Quick start
 
+Works on **macOS, Windows and Linux** — anywhere Claude Code runs. No native dependencies,
+no Python, no compilers; CI runs the full test suite on all three platforms.
+
 ```bash
 git clone https://github.com/jig21nesh/claude-session-analyser.git
 cd claude-session-analyser
