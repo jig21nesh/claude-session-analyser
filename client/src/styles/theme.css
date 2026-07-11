@@ -96,11 +96,17 @@ a:hover {
 
 code {
   font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-  font-size: 0.9em;
+  font-size: 0.85em;
+  line-height: 1.4;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-s);
-  padding: 1px 6px;
+  padding: 1px 5px;
+  /* Long tokens (paths, ids) wrap instead of dropping whole to the next line,
+     and a wrapped chip keeps its rounded edges on every fragment. */
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 ::selection {
