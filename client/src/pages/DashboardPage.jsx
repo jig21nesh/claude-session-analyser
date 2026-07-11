@@ -4,6 +4,7 @@ import { api } from '../services/api.js';
 import StatTile from '../components/StatTile.jsx';
 import { Loading, ErrorState, Empty } from '../components/States.jsx';
 import DailyCostChart from '../components/charts/DailyCostChart.jsx';
+import ForecastDetails from '../components/ForecastDetails.jsx';
 import ModelCostChart from '../components/charts/ModelCostChart.jsx';
 import TokenDonut from '../components/charts/TokenDonut.jsx';
 import RankedBars from '../components/RankedBars.jsx';
@@ -68,7 +69,10 @@ export default function DashboardPage() {
         ) : predictions.error ? (
           <ErrorState message={predictions.error} />
         ) : (
-          <DailyCostChart history={predictions.data.history} forecast={predictions.data.forecast} />
+          <>
+            <DailyCostChart history={predictions.data.history} forecast={predictions.data.forecast} />
+            <ForecastDetails result={predictions.data} />
+          </>
         )}
       </div>
 

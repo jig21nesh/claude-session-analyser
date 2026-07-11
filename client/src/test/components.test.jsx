@@ -4,6 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import StatTile from '../components/StatTile.jsx';
 import ModelTag from '../components/ModelTag.jsx';
 import ImprovementCard from '../components/ImprovementCard.jsx';
+import Footer from '../components/Footer.jsx';
+import ForecastDetails from '../components/ForecastDetails.jsx';
 import { modelColour, shortModelName, SERIES } from '../constants.js';
 
 describe('StatTile', () => {
@@ -32,6 +34,50 @@ describe('model colour mapping', () => {
   });
   it('should strip prefixes and date suffixes from names', () => {
     expect(shortModelName('claude-haiku-4-5-20251001')).toBe('haiku-4-5');
+  });
+});
+
+describe('Footer', () => {
+  it('should state the privacy guarantee and link to model-switcher', () => {
+    render(
+      <MemoryRouter>
+        <Footer />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/nothing leaves your machine/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'model-switcher' })).toHaveAttribute(
+      'href',
+      'https://github.com/jig21nesh/model-switcher'
+    );
+  });
+});
+
+describe('ForecastDetails', () => {
+  const result = {
+    model: 'holt-winters',
+    historyDays: 64,
+    metrics: { mae: 12.34, rmse: 56.78 },
+    params: { alpha: 0.3, beta: 0.05, gamma: 0.2, phi: 0.98 },
+    generatedAt: '2026-07-11T02:00:00.000Z',
+    explanation: 'Holt-Winters triple exponential smoothing fitted by grid search.',
+  };
+
+  it('should show the model, fit window, backtest error and parameters', () => {
+    render(
+      <MemoryRouter>
+        <ForecastDetails result={result} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/Holt-Winters \(additive/)).toBeInTheDocument();
+    expect(screen.getByText('64 days of history')).toBeInTheDocument();
+    expect(screen.getByText(/MAE \$12\.34 · RMSE \$56\.78/)).toBeInTheDocument();
+    expect(screen.getByText(/α=0\.3 · β=0\.05 · γ=0\.2 · φ=0\.98/)).toBeInTheDocument();
+    expect(screen.getByText(/fitted by grid search/)).toBeInTheDocument();
+  });
+
+  it('should render nothing without a result', () => {
+    const { container } = render(<ForecastDetails result={null} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });
 
