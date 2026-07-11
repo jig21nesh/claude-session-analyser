@@ -1,5 +1,7 @@
 export const MODEL_SWITCHER_URL = 'https://github.com/jig21nesh/model-switcher';
 
+export const AUTO_REFRESH_SECONDS = 30;
+
 // Validated categorical palette (dark surface) — fixed slot order, never cycled.
 export const SERIES = {
   gold: 'var(--series-1)',

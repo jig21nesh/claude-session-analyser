@@ -46,7 +46,8 @@ npm run dev
 
 Open **http://localhost:15800** — the first scan runs automatically and takes a few seconds even
 for gigabytes of transcripts. After that, the **Refresh** button re-analyses incrementally (only
-new or changed sessions are parsed).
+new or changed sessions are parsed), and an **auto-refresh** re-runs it every 30 seconds — a
+countdown in the header always shows the seconds until the next run, with a pause/resume toggle.
 
 > Ports: web UI `15800`, API `15801` — deliberately outside the default-port crowd.
 

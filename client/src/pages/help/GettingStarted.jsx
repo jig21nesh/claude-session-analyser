@@ -17,6 +17,11 @@ export default function GettingStarted() {
           by recomputing the improvement and forecast reports.
         </li>
         <li>
+          <strong>Auto refresh</strong> triggers the same incremental re-scan every 30 seconds; the
+          countdown in the header always shows the seconds until the next run, and the ❚❚ / ▶
+          button pauses and resumes it.
+        </li>
+        <li>
           <strong>Full reset:</strong> delete <code>server/data/analyser.db</code>; the next
           refresh rebuilds everything from the transcripts.
         </li>
