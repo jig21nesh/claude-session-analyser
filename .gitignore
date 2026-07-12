@@ -13,3 +13,4 @@ server/data/
 *.log
 docs/frames/
 marketing/
+.run/

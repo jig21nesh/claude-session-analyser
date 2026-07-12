@@ -51,6 +51,22 @@ countdown in the header always shows the seconds until the next run, with a paus
 
 > Ports: web UI `15800`, API `15801` — deliberately outside the default-port crowd.
 
+### Run it in the background
+
+`npm run dev` runs in the foreground; for a set-and-forget instance there is a cross-platform
+control script (no `screen`/`tmux` needed — works on Windows too):
+
+```bash
+npm start        # start API + web UI in the background (idempotent)
+npm run status   # pid + port health for each process (exit 0 = all running)
+npm run logs     # tail both logs (npm run logs api | web for one)
+npm run restart  # stop, then start
+npm stop         # stop both
+```
+
+Pid files and logs live in `.run/` (gitignored). `npm start` waits until both ports respond
+before returning, so it's safe to script against.
+
 ### Configuration (optional)
 
 Copy [`.env.example`](.env.example) to `.env` to override ports, the transcript directory,

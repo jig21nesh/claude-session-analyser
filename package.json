@@ -10,7 +10,11 @@
   ],
   "scripts": {
     "dev": "concurrently -n api,web -c yellow,cyan \"npm run dev --workspace server\" \"npm run dev --workspace client\"",
-    "start": "npm run dev",
+    "start": "node scripts/ctl.js start",
+    "stop": "node scripts/ctl.js stop",
+    "status": "node scripts/ctl.js status",
+    "restart": "node scripts/ctl.js restart",
+    "logs": "node scripts/ctl.js logs",
     "test": "npm test --workspace server && npm test --workspace client",
     "coverage": "npm run coverage --workspace server"
   },
